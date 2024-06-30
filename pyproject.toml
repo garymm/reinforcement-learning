@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rl"
+authors = [{ name = "Gary Mindlin Miguel", email = "garymm@garymm.org" }]
+requires-python = ">=3.10,<3.11"                                             # corax currently requires Python 3.10
+dynamic = ["version"]
+dependencies = ["corax @ git+https://github.com/ethanluoyc/corax#egg=corax"]
+
+[tool.pixi.project]
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[tool.pixi.pypi-dependencies]
+rl = { path = ".", editable = true }
+
+[tool.pixi.dependencies]
+absl-py = "*"
+dm-env = "*"
+dm-tree = "*"
+numpy = "*"
+equinox = ">=0.11.4,<0.12"
