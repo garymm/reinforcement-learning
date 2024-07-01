@@ -5,9 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rl"
 authors = [{ name = "Gary Mindlin Miguel", email = "garymm@garymm.org" }]
-requires-python = ">=3.10,<3.11"                                             # corax currently requires Python 3.10
+requires-python = ">=3.10,<3.11" # corax currently requires Python 3.10
 dynamic = ["version"]
-dependencies = ["corax @ git+https://github.com/ethanluoyc/corax#egg=corax"]
+dependencies = [
+    "corax @ git+https://github.com/ethanluoyc/corax#egg=corax",
+    "dm-reverb",
+]
 
 [tool.pixi.project]
 channels = ["conda-forge"]
@@ -20,5 +23,20 @@ rl = { path = ".", editable = true }
 absl-py = "*"
 dm-env = "*"
 dm-tree = "*"
-numpy = "*"
 equinox = ">=0.11.4,<0.12"
+numpy = "*"
+portpicker = "*"
+psutil = "*"
+
+[tool.pixi.feature.cuda]
+platforms = ["linux-64"]
+channels = ["nvidia"]
+system-requirements = { cuda = "12" }
+
+[tool.pixi.feature.cuda.target.linux-64.dependencies]
+# jaxlib requires a newer version than what is available in nvidia channel
+cudnn = { version = "*", channel = "conda-forge" }
+jaxlib = { version = ">=0.4.23,<0.5.0", build = "*cuda12*" }
+
+[tool.pixi.environments]
+cuda = ["cuda"]

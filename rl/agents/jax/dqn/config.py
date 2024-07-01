@@ -1,11 +1,14 @@
 import dataclasses
 
+
 @dataclasses.dataclass
 class DQNConfig:
     """Configuration options for DQN."""
+
     batch_size: int = 32
     discount: float = 0.99
-    learning_rate: float = 2e-4 # TODO: support optax.Schedule
+    learning_rate: float = 2e-4  # TODO: support optax.Schedule
+    policy_epsilon: float = 0.01
     replay_buffer_size: int = 1_000_000
     seed: int = 0
     # TODO: maybe frame skip, frame stacking.
