@@ -6,19 +6,27 @@ import jaxtyping
 import numpy as np
 import reverb
 from corax import adders, core, specs
+from corax.adders import reverb as adders_reverb
 from corax.agents.jax import actor_core as actor_core_lib
 from corax.agents.jax import actors, builders
+from corax.datasets import reverb as datasets_reverb
 from corax.jax import networks as networks_lib
 from corax.jax import types as jax_types
+from corax.jax import utils, variable_utils
+from reverb import rate_limiters
 
 from rl.agents.jax.dqn.config import DQNConfig
 from rl.agents.jax.dqn.networks import (
     DQNNetworks,
 )
 
+_REPLAY_TABLE_NAME = "replay"
+
 
 class DQNBuilder(
-    builders.ActorLearnerBuilder[DQNNetworks, actor_core_lib.FeedForwardPolicy, TODO]
+    builders.ActorLearnerBuilder[
+        DQNNetworks, actor_core_lib.FeedForwardPolicy, reverb.ReplaySample
+    ]
 ):
     def __init__(self, config: DQNConfig):
         self._config = config
@@ -26,7 +34,7 @@ class DQNBuilder(
     def make_replay_tables(
         self,
         environment_spec: specs.EnvironmentSpec,
-        policy: builders.Policy,
+        policy: actor_core_lib.FeedForwardPolicy,
     ) -> list[reverb.Table]:
         """Create tables to insert data into.
 
@@ -37,14 +45,29 @@ class DQNBuilder(
         Returns:
           The replay tables used to store the experience the agent uses to train.
         """
-        pass  # TODO
+        signature = adders_reverb.SequenceAdder.signature(environment_spec)
+        return [
+            reverb.Table(
+                name=_REPLAY_TABLE_NAME,
+                sampler=reverb.selectors.Uniform(),
+                remover=reverb.selectors.Fifo(),
+                max_size=self._config.replay_buffer_size,
+                rate_limiter=rate_limiters.Queue(self._config.replay_buffer_size),
+                signature=signature,
+            )
+        ]
 
     def make_dataset_iterator(
         self,
         replay_client: reverb.Client,
-    ) -> Iterator[builders.Sample]:
+    ) -> Iterator[reverb.ReplaySample]:
         """Create a dataset iterator to use for learning/updating the agent."""
-        pass  # TODO
+        dataset = datasets_reverb.make_reverb_dataset(
+            table=_REPLAY_TABLE_NAME,
+            server_address=replay_client.server_address,
+            batch_size=self._config.batch_size,
+        )
+        return utils.device_put(dataset.as_numpy_iterator(), jax.devices()[0])
 
     def make_adder(
         self,
@@ -69,10 +92,16 @@ class DQNBuilder(
         variable_source: Optional[core.VariableSource] = None,
         adder: Optional[adders.Adder] = None,
     ) -> core.Actor:
-        # TODO: this doesn't work because my policy does not take in parameters.
+        assert variable_source
         actor_core = actor_core_lib.batched_feed_forward_to_actor_core(policy)
+        variable_client = variable_utils.VariableClient(
+            variable_source,
+            "params",
+            update_period=self._config.variable_update_period,
+            device=self._config.device,
+        )
         return actors.GenericActor(
-            actor_core, random_key, variable_client, adder, backend=device
+            actor_core, random_key, variable_client, adder, backend=self._config.device
         )
 
     def make_learner(

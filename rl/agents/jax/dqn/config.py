@@ -12,6 +12,9 @@ class DQNConfig:
     policy_epsilon: float = 0.01
     replay_buffer_size: int = 1_000_000
     seed: int = 0
+    # How often to update the the actor from the learner.
+    variable_update_period: int = 1
+    device: str = "cpu"
     # TODO: maybe frame skip, frame stacking.
 
     def __post_init__(self):
