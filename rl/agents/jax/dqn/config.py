@@ -7,6 +7,7 @@ class DQNConfig:
 
     batch_size: int = 32
     discount: float = 0.99
+    epsilon: float = 0.01  # TODO: support schedule
     learning_rate: float = 2e-4  # TODO: support optax.Schedule
     policy_epsilon: float = 0.01
     replay_buffer_size: int = 1_000_000

@@ -1,6 +1,4 @@
 import dataclasses
-import functools
-from typing import Callable
 
 import equinox as eqx
 import jax
@@ -9,20 +7,22 @@ import jaxtyping
 import numpy as np
 from corax import specs
 from corax.jax import types as jax_types
+from corax.jax.networks import base as networks_base
 
-# Adding a few types here because the corax types seem to assume haiku
-# (which has separate .init() and .apply()  methods) and I'm using equinox.
-# Inputs can be numpy or Jax, outputs are always Jax.
-CallableFeedForwardNetwork = Callable[[jaxtyping.Array | np.ndarray], jaxtyping.Array]
-CallableFeedForwardPolicy = Callable[
-    [jax_types.PRNGKey, jaxtyping.Array | np.ndarray], jaxtyping.Array
-]
+# # Adding a few types here because the corax types seem to assume haiku
+# # (which has separate .init() and .apply()  methods) and I'm using equinox.
+# # Inputs can be numpy or Jax, outputs are always Jax.
+# CallableFeedForwardNetwork = Callable[[jaxtyping.Array | np.ndarray], jaxtyping.Array]
+# CallableFeedForwardPolicy = Callable[
+#     [jax_types.PRNGKey, jaxtyping.Array | np.ndarray], jaxtyping.Array
+# ]
 
 
 @dataclasses.dataclass
 class DQNNetworks:
-    make_q_network: Callable[[jax_types.PRNGKey], CallableFeedForwardNetwork]
-    q_network: CallableFeedForwardNetwork | None = None
+    # TODO: having to conform to TypedFeedForwardNetwork is maybe no ideal.
+    # seems needed for Haiku, but I'm using Equinox.
+    q_network: networks_base.TypedFeedForwardNetwork
 
 
 def _conv_output_shape(conv: eqx.nn.Conv, input_shape: tuple[int]) -> tuple[int]:
@@ -86,23 +86,14 @@ class _QNetwork(eqx.Module):
         return self._submodule(x)
 
 
-def make_policy(
-    networks: DQNNetworks, action_specs: specs.DiscreteArray, epsilon: float
-) -> CallableFeedForwardPolicy:
-    def policy(
-        key: jax_types.PRNGKey, obs: jaxtyping.Array | np.ndarray
-    ) -> jaxtyping.Array:
-        assert networks.q_network
-        # From the paper algorithm 1, epsilon greedy policy.
-        if jax.random.uniform(key) < epsilon:
-            return jax.random.randint(key, (1,), 0, action_specs.shape[0])
-        q = networks.q_network(obs)
-        return jnp.argmax(q)
-
-    return policy
-
-
 def make_networks(
     spec: specs.EnvironmentSpec,
 ) -> DQNNetworks:
-    return DQNNetworks(make_q_network=functools.partial(_QNetwork, spec))
+    def _apply_fn(params: _QNetwork, observation, *args, is_training, key=None):
+        return params(observation)
+
+    typed_ffn = networks_base.TypedFeedForwardNetwork(
+        init=lambda key: _QNetwork(spec, key),
+        apply=_apply_fn,
+    )
+    return DQNNetworks(typed_ffn)

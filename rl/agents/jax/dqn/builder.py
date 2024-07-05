@@ -1,21 +1,24 @@
 from typing import Iterator, Optional
 
+import jax
+import jax.numpy as jnp
+import jaxtyping
+import numpy as np
 import reverb
 from corax import adders, core, specs
 from corax.agents.jax import actor_core as actor_core_lib
 from corax.agents.jax import actors, builders
 from corax.jax import networks as networks_lib
+from corax.jax import types as jax_types
 
 from rl.agents.jax.dqn.config import DQNConfig
 from rl.agents.jax.dqn.networks import (
-    CallableFeedForwardPolicy,
     DQNNetworks,
-    make_policy,
 )
 
 
 class DQNBuilder(
-    builders.ActorLearnerBuilder[DQNNetworks, CallableFeedForwardPolicy, TODO]
+    builders.ActorLearnerBuilder[DQNNetworks, actor_core_lib.FeedForwardPolicy, TODO]
 ):
     def __init__(self, config: DQNConfig):
         self._config = config
@@ -61,7 +64,7 @@ class DQNBuilder(
     def make_actor(
         self,
         random_key: networks_lib.PRNGKey,
-        policy: CallableFeedForwardPolicy,
+        policy: actor_core_lib.FeedForwardPolicy,
         environment_spec: specs.EnvironmentSpec,
         variable_source: Optional[core.VariableSource] = None,
         adder: Optional[adders.Adder] = None,
@@ -104,7 +107,29 @@ class DQNBuilder(
         networks: DQNNetworks,
         environment_spec: specs.EnvironmentSpec,
         evaluation: bool = False,
-    ) -> CallableFeedForwardPolicy:
-        return make_policy(
-            networks, environment_spec.actions, self._config.policy_epsilon
-        )
+    ) -> actor_core_lib.FeedForwardPolicy:
+        assert networks.q_network
+
+        def _greedy_policy(
+            params: DQNNetworks,
+            key: jax_types.PRNGKey,
+            obs: jaxtyping.Array | np.ndarray,
+        ) -> jaxtyping.Array:
+            q = networks.q_network.apply(params, obs, is_training=True)
+            return jnp.argmax(q)
+
+        def _epsilon_greedy_policy(
+            params: DQNNetworks,
+            key: jax_types.PRNGKey,
+            obs: jaxtyping.Array | np.ndarray,
+        ) -> jaxtyping.Array:
+            # From the paper algorithm 1, epsilon greedy policy.
+            if jax.random.uniform(key) < self._config.epsilon:
+                return jax.random.randint(
+                    key, (1,), 0, environment_spec.actions.shape[0]
+                )
+            return _greedy_policy(params, key, obs)
+
+        if evaluation:
+            return _greedy_policy
+        return _epsilon_greedy_policy
