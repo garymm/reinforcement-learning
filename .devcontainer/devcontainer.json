@@ -1,0 +1,10 @@
+{
+    "name": "reinforcement learning",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "mounts": [
+        "source=${localWorkspaceFolderBasename}-pixi,target=${containerWorkspaceFolder}/.pixi,type=volume"
+    ],
+    "postCreateCommand": "chown $(whoami) .pixi && pixi install"
+}

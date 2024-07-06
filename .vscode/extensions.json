@@ -3,6 +3,7 @@
         "charliermarsh.ruff",
         "esbenp.prettier-vscode",
         "ms-python.python",
+        "ms-vscode-remote.remote-containers",
         "tamasfe.even-better-toml",
     ]
 }
