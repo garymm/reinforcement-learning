@@ -25,6 +25,7 @@ dm-env = "*"
 dm-tree = "*"
 equinox = ">=0.11.4,<0.12"
 numpy = "*"
+optax = "*"
 portpicker = "*"
 psutil = "*"
 

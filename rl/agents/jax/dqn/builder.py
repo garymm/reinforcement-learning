@@ -4,6 +4,7 @@ import jax
 import jax.numpy as jnp
 import jaxtyping
 import numpy as np
+import optax
 import reverb
 from corax import adders, core, specs
 from corax.adders import reverb as adders_reverb
@@ -13,9 +14,11 @@ from corax.datasets import reverb as datasets_reverb
 from corax.jax import networks as networks_lib
 from corax.jax import types as jax_types
 from corax.jax import utils, variable_utils
+from corax.utils import counting, loggers
 from reverb import rate_limiters
 
 from rl.agents.jax.dqn.config import DQNConfig
+from rl.agents.jax.dqn.learning import DQNLearner
 from rl.agents.jax.dqn.networks import (
     DQNNetworks,
 )
@@ -45,7 +48,7 @@ class DQNBuilder(
         Returns:
           The replay tables used to store the experience the agent uses to train.
         """
-        signature = adders_reverb.SequenceAdder.signature(environment_spec)
+        signature = adders_reverb.NStepTransitionAdder.signature(environment_spec)
         return [
             reverb.Table(
                 name=_REPLAY_TABLE_NAME,
@@ -82,7 +85,11 @@ class DQNBuilder(
           environment_spec: specs of the environment.
           policy: Agent's policy which can be used to extract the extras_spec.
         """
-        pass  # TODO
+        # paper section 4:
+        # we store the agent’s experiences at each time-step, e_t = (s_t, a_t, r_t, s_{t+1})
+        return adders_reverb.NStepTransitionAdder(
+            replay_client, 1, self._config.discount
+        )
 
     def make_actor(
         self,
@@ -108,7 +115,7 @@ class DQNBuilder(
         self,
         random_key: networks_lib.PRNGKey,
         networks: DQNNetworks,
-        dataset: Iterator[Sample],
+        dataset: Iterator[reverb.ReplaySample],
         logger_fn: loggers.LoggerFactory,
         environment_spec: specs.EnvironmentSpec,
         replay_client: Optional["reverb.Client"] = None,
@@ -129,7 +136,14 @@ class DQNBuilder(
           counter: a Counter which allows for recording of counts (learner steps,
             actor steps, etc.) distributed throughout the agent.
         """
-        pass  # TODO
+        return DQNLearner(
+            networks=networks,
+            random_key=random_key,
+            iterator=dataset,
+            q_optimizer=optax.sgd(self._config.learning_rate),
+            counter=counter,
+            logger=logger_fn("learner"),
+        )
 
     def make_policy(
         self,

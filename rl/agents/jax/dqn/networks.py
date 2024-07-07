@@ -20,8 +20,9 @@ from corax.jax.networks import base as networks_base
 
 @dataclasses.dataclass
 class DQNNetworks:
-    # TODO: having to conform to TypedFeedForwardNetwork is maybe no ideal.
-    # seems needed for Haiku, but I'm using Equinox.
+    # TODO: having to conform to TypedFeedForwardNetwork is awkward.
+    # seems needed for Haiku, but I'm using Equinoxs, o the init and apply
+    # is annoying.
     q_network: networks_base.TypedFeedForwardNetwork
 
 
