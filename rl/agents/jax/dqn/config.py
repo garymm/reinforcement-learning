@@ -15,7 +15,8 @@ class DQNConfig:
     # How often to update the the actor from the learner.
     variable_update_period: int = 1
     device: str = "cpu"
-    # TODO: maybe frame skip, frame stacking.
+    # TODO: maybe frame skip, frame stacking, but I guess that maybe
+    # done inside the environment?
 
     def __post_init__(self):
         assert self.batch_size > 0
