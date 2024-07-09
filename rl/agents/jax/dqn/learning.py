@@ -5,6 +5,7 @@ import time
 from typing import Any, Iterator, Sequence
 
 import corax
+import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jaxtyping
@@ -27,6 +28,7 @@ class _TrainingState:
     random_key: networks_lib.PRNGKey
 
 
+# TODO: maybe I can use corax.agents.jax.DefaultJaxLearner
 class DQNLearner(corax.Learner):
     def __init__(
         self,
@@ -50,9 +52,9 @@ class DQNLearner(corax.Learner):
         key_q, random_key = jax.random.split(random_key, 2)
 
         q_params = networks.q_network.init(key_q)
-        q_optimizer_state = q_optimizer.init(q_params)
+        q_optimizer_state = q_optimizer.init(eqx.filter(q_params, eqx.is_array))
 
-        self.state = _TrainingState(
+        self._state = _TrainingState(
             q_optimizer_state=q_optimizer_state,
             q_params=q_params,
             target_q_params=q_params,
@@ -76,7 +78,7 @@ class DQNLearner(corax.Learner):
             )
             return jnp.mean(jnp.square(target - estimate))
 
-        q_loss_grad = jax.value_and_grad(q_loss)
+        q_loss_grad = eqx.filter_value_and_grad(q_loss)
 
         def update_step(
             state: _TrainingState,
@@ -100,7 +102,7 @@ class DQNLearner(corax.Learner):
             )
 
         # TODO: do I need to vmap to handle batched transitions?
-        self._update_step = jax.jit(update_step)
+        self._update_step = update_step  # eqx.filter_jit(update_step)
 
     def step(self):
         sample = next(self._iterator)
@@ -117,7 +119,7 @@ class DQNLearner(corax.Learner):
         self._logger.write({**metrics, **counts})
 
     def get_variables(self, names: Sequence[str]) -> list[Any]:
-        variables = {"q": self._state.q_params}
+        variables = {"q": eqx.filter(self._state.q_params, eqx.is_array)}
         return [variables[name] for name in names]
 
     def save(self) -> _TrainingState:

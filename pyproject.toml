@@ -9,7 +9,10 @@ requires-python = ">=3.10,<3.11" # corax currently requires Python 3.10
 dynamic = ["version"]
 dependencies = [
     "corax[jax] @ git+https://github.com/ethanluoyc/corax#egg=corax",
-    "dm-reverb",
+    "dm-reverb[tensorflow]",
+    "equinox",
+    "jaxtyping",
+    "rlds",
 ]
 
 [project.optional-dependencies]
@@ -39,3 +42,10 @@ pytest = ">=8.2.2,<8.3.0"
 [tool.pixi.environments]
 # cuda = ["cuda"]
 test = ["test"]
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:jax.xla_computation is deprecated. Please use the AOT APIs.:DeprecationWarning",
+    "ignore:distutils Version classes are deprecated. Use packaging.version instead.:DeprecationWarning",
+    "ignore:jax.core.pp_eqn_rules is deprecated.:DeprecationWarning",
+]

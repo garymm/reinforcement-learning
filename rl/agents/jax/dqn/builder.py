@@ -15,6 +15,7 @@ from corax.jax import networks as networks_lib
 from corax.jax import types as jax_types
 from corax.jax import utils, variable_utils
 from corax.utils import counting, loggers
+from jax.dtypes import issubdtype
 from reverb import rate_limiters
 
 from rl.agents.jax.dqn.config import DQNConfig
@@ -103,12 +104,18 @@ class DQNBuilder(
         actor_core = actor_core_lib.batched_feed_forward_to_actor_core(policy)
         variable_client = variable_utils.VariableClient(
             variable_source,
-            "params",
+            "q",
             update_period=self._config.variable_update_period,
             device=self._config.device,
         )
+
         return actors.GenericActor(
-            actor_core, random_key, variable_client, adder, backend=self._config.device
+            actor_core,
+            random_key,
+            variable_client,
+            adder,
+            backend=self._config.device,
+            jit=False,  # TODO: Just for debugging
         )
 
     def make_learner(
@@ -152,27 +159,31 @@ class DQNBuilder(
         evaluation: bool = False,
     ) -> actor_core_lib.FeedForwardPolicy:
         assert networks.q_network
+        action_dtype = environment_spec.actions.dtype
+        assert issubdtype(action_dtype, jnp.integer)
 
         def _greedy_policy(
-            params: DQNNetworks,
+            params: jaxtyping.PyTree,
             key: jax_types.PRNGKey,
             obs: jaxtyping.Array | np.ndarray,
         ) -> jaxtyping.Array:
             q = networks.q_network.apply(params, obs, is_training=True)
-            return jnp.argmax(q)
+            res = jnp.argmax(q)
+            return res.astype(action_dtype)
 
         def _epsilon_greedy_policy(
-            params: DQNNetworks,
+            params: jaxtyping.PyTree,
             key: jax_types.PRNGKey,
             obs: jaxtyping.Array | np.ndarray,
         ) -> jaxtyping.Array:
             # From the paper algorithm 1, epsilon greedy policy.
             if jax.random.uniform(key) < self._config.epsilon:
                 return jax.random.randint(
-                    key, (1,), 0, environment_spec.actions.shape[0]
+                    key, (1,), 0, environment_spec.actions.shape[0], dtype=action_dtype
                 )
             return _greedy_policy(params, key, obs)
 
+        policy = _epsilon_greedy_policy
         if evaluation:
-            return _greedy_policy
-        return _epsilon_greedy_policy
+            policy = _greedy_policy
+        return jax.vmap(policy, in_axes=(None, None, 0))
