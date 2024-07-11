@@ -8,6 +8,7 @@ import optax
 import reverb
 from corax import adders, core, specs
 from corax.adders import reverb as adders_reverb
+from corax.adders.reverb.base import DEFAULT_PRIORITY_TABLE
 from corax.agents.jax import actor_core as actor_core_lib
 from corax.agents.jax import actors, builders
 from corax.datasets import reverb as datasets_reverb
@@ -23,8 +24,6 @@ from rl.agents.jax.dqn.learning import DQNLearner
 from rl.agents.jax.dqn.networks import (
     DQNNetworks,
 )
-
-_REPLAY_TABLE_NAME = "replay"
 
 
 class DQNBuilder(
@@ -52,7 +51,7 @@ class DQNBuilder(
         signature = adders_reverb.NStepTransitionAdder.signature(environment_spec)
         return [
             reverb.Table(
-                name=_REPLAY_TABLE_NAME,
+                name=DEFAULT_PRIORITY_TABLE,
                 sampler=reverb.selectors.Uniform(),
                 remover=reverb.selectors.Fifo(),
                 max_size=self._config.replay_buffer_size,
@@ -67,7 +66,7 @@ class DQNBuilder(
     ) -> Iterator[reverb.ReplaySample]:
         """Create a dataset iterator to use for learning/updating the agent."""
         dataset = datasets_reverb.make_reverb_dataset(
-            table=_REPLAY_TABLE_NAME,
+            table=DEFAULT_PRIORITY_TABLE,
             server_address=replay_client.server_address,
             batch_size=self._config.batch_size,
         )
@@ -75,7 +74,7 @@ class DQNBuilder(
 
     def make_adder(
         self,
-        replay_client: "reverb.Client",
+        replay_client: reverb.Client,
         environment_spec: Optional[specs.EnvironmentSpec],
         policy: Optional[builders.Policy],
     ) -> Optional[adders.Adder]:
