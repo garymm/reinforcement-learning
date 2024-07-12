@@ -102,7 +102,7 @@ class DQNLearner(corax.Learner):
             )
 
         # TODO: do I need to vmap to handle batched transitions?
-        self._update_step = update_step  # eqx.filter_jit(update_step)
+        self._update_step = eqx.filter_jit(update_step)
 
     def step(self):
         sample = next(self._iterator)

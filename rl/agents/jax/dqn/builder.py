@@ -114,7 +114,6 @@ class DQNBuilder(
             variable_client,
             adder,
             backend=self._config.device,
-            jit=False,  # TODO: Just for debugging
         )
 
     def make_learner(
@@ -170,17 +169,29 @@ class DQNBuilder(
             res = jnp.argmax(q)
             return res.astype(action_dtype)
 
+        def _random_action(
+            params: jaxtyping.PyTree,
+            key: jax_types.PRNGKey,
+            obs: jaxtyping.Array | np.ndarray,
+        ) -> jaxtyping.Array:
+            return jax.random.randint(
+                key, (), 0, environment_spec.actions.maximum + 1, dtype=action_dtype
+            )
+
         def _epsilon_greedy_policy(
             params: jaxtyping.PyTree,
             key: jax_types.PRNGKey,
             obs: jaxtyping.Array | np.ndarray,
         ) -> jaxtyping.Array:
             # From the paper algorithm 1, epsilon greedy policy.
-            if jax.random.uniform(key) < self._config.epsilon:
-                return jax.random.randint(
-                    key, (1,), 0, environment_spec.actions.shape[0], dtype=action_dtype
-                )
-            return _greedy_policy(params, key, obs)
+            return jax.lax.cond(
+                jax.random.uniform(key) < self._config.epsilon,
+                _random_action,
+                _greedy_policy,
+                params,
+                key,
+                obs,
+            )
 
         policy = _epsilon_greedy_policy
         if evaluation:
