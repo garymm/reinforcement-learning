@@ -8,44 +8,23 @@ authors = [{ name = "Gary Mindlin Miguel", email = "garymm@garymm.org" }]
 requires-python = ">=3.10,<3.11" # corax currently requires Python 3.10
 dynamic = ["version"]
 dependencies = [
-    "corax[jax] @ git+https://github.com/ethanluoyc/corax#egg=corax",
+    "corax @ git+https://github.com/ethanluoyc/corax#egg=corax",
+    "dm-haiku",
     "dm-reverb[tensorflow]",
     "equinox",
     "jaxtyping",
+    "jax[cuda12]",
     "rlds",
+    "tensorflow-probability",
 ]
 
 [project.optional-dependencies]
 test = ["pytest"]
-
-[tool.pixi.project]
-channels = ["conda-forge"]
-platforms = ["linux-64"]
-
-[tool.pixi.pypi-dependencies]
-rl = { path = ".", editable = true }
-
-
-# [tool.pixi.feature.cuda]
-# platforms = ["linux-64"]
-# channels = ["nvidia"]
-# system-requirements = { cuda = "12" }
-
-# [tool.pixi.feature.cuda.target.linux-64.dependencies]
-# # jaxlib requires a newer version than what is available in nvidia channel
-# cudnn = { version = "*", channel = "conda-forge" }
-# jaxlib = { version = ">=0.4.23,<0.5.0", build = "*cuda12*" }
-
-[tool.pixi.feature.test.dependencies]
-pytest = ">=8.2.2,<8.3.0"
-
-[tool.pixi.environments]
-# cuda = ["cuda"]
-test = ["test"]
 
 [tool.pytest.ini_options]
 filterwarnings = [
     "ignore:jax.xla_computation is deprecated. Please use the AOT APIs.:DeprecationWarning",
     "ignore:distutils Version classes are deprecated. Use packaging.version instead.:DeprecationWarning",
     "ignore:jax.core.pp_eqn_rules is deprecated.:DeprecationWarning",
+    "ignore:jax.tree_map is deprecated.:DeprecationWarning",
 ]
