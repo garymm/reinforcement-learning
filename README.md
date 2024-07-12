@@ -2,6 +2,8 @@
 
 ## Setup
 
+Works only on Linux AMD64.
+
 - [Install UV](https://github.com/astral-sh/uv/blob/main/README.md)
 
 ```sh
