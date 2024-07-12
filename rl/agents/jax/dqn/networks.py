@@ -95,7 +95,7 @@ class _QNetwork(eqx.Module):
             )
         )
 
-    # @eqx.filter_jit
+    @eqx.filter_jit
     def __call__(self, x: jaxtyping.Array | np.ndarray) -> jaxtyping.Array:
         if isinstance(x, np.ndarray):
             x = jnp.array(x)
