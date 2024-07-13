@@ -11,6 +11,8 @@ from rl.agents.jax.dqn.builder import DQNBuilder
 from rl.agents.jax.dqn.config import DQNConfig
 from rl.agents.jax.dqn.networks import make_networks
 
+env_episode_length = 10
+
 
 def _make_empty_experiment_logger(*args, **kwargs):
     del args, kwargs
@@ -29,17 +31,27 @@ def _make_fake_environment(seed: int):
             ),
             rewards=env_specs.Array((), np.float32),
             discounts=env_specs.BoundedArray((), np.float32, 0, 1),
-        )
+        ),
+        episode_length=env_episode_length,
     )
     return environment
 
 
 class DrQV2Test(unittest.TestCase):
     def test_agent(self):
-        builder = DQNBuilder(config=DQNConfig())
+        builder = DQNBuilder(
+            config=DQNConfig(
+                # trying to force learning to happen during the test.
+                # these get used by
+                # experiments.run_experiment._LearningActor
+                # to determine when there's enough observations to learn.
+                replay_buffer_size=env_episode_length,
+                batch_size=2,
+            )
+        )
         config = experiments.ExperimentConfig(
             builder,
-            max_num_actor_steps=20,
+            max_num_actor_steps=2 * env_episode_length,
             seed=0,
             network_factory=make_networks,
             environment_factory=_make_fake_environment,
