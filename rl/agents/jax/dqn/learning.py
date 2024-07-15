@@ -1,6 +1,6 @@
 """DQN learner."""
 
-import dataclasses
+import collections
 import time
 from typing import Any, Iterator, Sequence
 
@@ -19,13 +19,11 @@ from rl.agents.jax.dqn.networks import (
     DQNNetworks,
 )
 
-
-@dataclasses.dataclass
-class _TrainingState:
-    q_optimizer_state: optax.OptState
-    q_params: networks_lib.Params
-    target_q_params: networks_lib.Params
-    random_key: networks_lib.PRNGKey
+# eqx.filter_jit can automatically handle namedtuple but not dataclass.
+# TODO: Try to use chex.dataclass.
+_TrainingState = collections.namedtuple(
+    "_TrainingState", ("q_optimizer_state", "q_params", "target_q_params", "random_key")
+)
 
 
 # TODO: maybe I can use corax.agents.jax.DefaultJaxLearner
@@ -48,6 +46,7 @@ class DQNLearner(corax.Learner):
             serialize_fn=fetch_devicearray,
             steps_key=self._counter.get_steps_key(),
         )
+        self._timestamp: float = 0.0
 
         key_q, random_key = jax.random.split(random_key, 2)
 
@@ -57,51 +56,59 @@ class DQNLearner(corax.Learner):
         self._state = _TrainingState(
             q_optimizer_state=q_optimizer_state,
             q_params=q_params,
-            target_q_params=q_params,
+            target_q_params=networks.q_network.init(key_q),
             random_key=random_key,
         )
+
+        def q_loss_single(
+            q_params: networks_lib.Params,
+            target_q_params: networks_lib.Params,
+            transition: corax.types.Transition,
+        ):
+            target = transition.reward + transition.discount * networks.q_network.apply(
+                target_q_params, transition.next_observation, is_training=True
+            )
+            estimate = networks.q_network.apply(
+                q_params, transition.observation, is_training=True
+            )
+            return jnp.mean(jnp.square(target - estimate))
+
+        q_loss_batched = jax.vmap(q_loss_single, in_axes=(None, None, 0))
 
         def q_loss(
             q_params: networks_lib.Params,
             target_q_params: networks_lib.Params,
-            transitions: corax.types.Transition,
+            transition: corax.types.Transition,
         ):
-            target = (
-                transitions.reward
-                + transitions.discount
-                * networks.q_network.apply(
-                    target_q_params, transitions.next_observation, is_training=True
-                )
-            )
-            estimate = networks.q_network.apply(
-                q_params, transitions.observation, is_training=True
-            )
-            return jnp.mean(jnp.square(target - estimate))
+            return jnp.mean(q_loss_batched(q_params, target_q_params, transition))
 
         q_loss_grad = eqx.filter_value_and_grad(q_loss)
 
         def update_step(
             state: _TrainingState,
-            transitions: corax.types.Transition,
+            transition: corax.types.Transition,
         ) -> tuple[_TrainingState, dict[str, jaxtyping.Array]]:
             loss, loss_grad = q_loss_grad(
-                state.q_params, state.target_q_params, transitions
+                state.q_params, state.target_q_params, transition
             )
             q_update, q_optimizer_state = q_optimizer.update(
                 loss_grad, state.q_optimizer_state, state.q_params
             )
-            metrics = {"q_loss": loss}
+            metrics = {
+                "q_loss": loss,
+                "q_loss_grad_l2_norm": optax.tree_utils.tree_l2_norm(loss_grad),
+            }
             return (
                 _TrainingState(
                     q_optimizer_state=q_optimizer_state,
-                    q_params=optax.apply_updates(state.q_params, q_update),
+                    q_params=eqx.apply_updates(state.q_params, q_update),
                     target_q_params=q_params,
                     random_key=state.random_key,
                 ),
                 metrics,
             )
 
-        # TODO: do I need to vmap to handle batched transitions?
+        # TODO: donate="all" should work here but it doesn't.
         self._update_step = eqx.filter_jit(update_step)
 
     def step(self):

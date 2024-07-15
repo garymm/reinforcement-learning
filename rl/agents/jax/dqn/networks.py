@@ -56,6 +56,7 @@ class _QNetwork(eqx.Module):
     _submodule: eqx.nn.Sequential
 
     def __init__(self, spec: specs.EnvironmentSpec, key: jax_types.PRNGKey):
+        super().__init__()
         obs_shape = spec.observations.shape
         obs_rank = len(obs_shape)
         if obs_rank < 3 or obs_rank > 4:
@@ -97,6 +98,8 @@ class _QNetwork(eqx.Module):
 
     @eqx.filter_jit
     def __call__(self, x: jaxtyping.Array | np.ndarray) -> jaxtyping.Array:
+        if x.ndim != 3:
+            raise ValueError("Expected input to have rank 3. Got rank %d" % x.ndim)
         if isinstance(x, np.ndarray):
             x = jnp.array(x)
         x = x.astype(jnp.float32)
@@ -104,14 +107,8 @@ class _QNetwork(eqx.Module):
         # Assuming channel last is the input format because of this:
         # https://github.com/google-deepmind/acme/blob/bea6d6b27c366cd07dd5202356f372e02c1f3f9b/acme/jax/networks/atari.py#L56
         # Would be more efficient if the observations could match what my convs expect.
-        if x.ndim == 3:
-            x = x.transpose((2, 0, 1))
-            return self._submodule(x)
-        elif x.ndim == 4:
-            x = x.transpose((0, 3, 1, 2))
-            return jax.vmap(self._submodule)(x)
-        else:
-            raise ValueError("Expected input to have rank 3 or 4. Got rank %d" % x.ndim)
+        x = x.transpose((2, 0, 1))
+        return self._submodule(x)
 
 
 def make_networks(
