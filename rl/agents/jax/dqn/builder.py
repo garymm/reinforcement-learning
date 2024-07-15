@@ -105,7 +105,6 @@ class DQNBuilder(
             variable_source,
             "q",
             update_period=self._config.variable_update_period,
-            device=self._config.device,
         )
 
         return actors.GenericActor(
@@ -113,7 +112,7 @@ class DQNBuilder(
             random_key,
             variable_client,
             adder,
-            backend=self._config.device,
+            backend=None,
         )
 
     def make_learner(
