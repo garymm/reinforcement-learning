@@ -9,9 +9,12 @@ requires-python = ">=3.10,<3.11" # corax currently requires Python 3.10
 dynamic = ["version"]
 dependencies = [
     "corax @ git+https://github.com/ethanluoyc/corax#egg=corax",
+    "dm-env-wrappers",
     "dm-haiku",
     "dm-reverb[tensorflow]",
     "equinox",
+    "gymnasium[accept-rom-license]",
+    "gymnasium[atari]",
     "jaxtyping",
     "jax[cuda12]",
     "rlds",
