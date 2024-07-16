@@ -5,20 +5,15 @@ import dm_env_wrappers
 import gymnasium as gym
 import numpy as np
 from corax.jax import experiments
-from corax.utils import loggers
 
 from rl.agents.jax.dqn.builder import DQNBuilder
 from rl.agents.jax.dqn.config import DQNConfig
 from rl.agents.jax.dqn.networks import make_networks
+from rl.utils.loggers import mlflow
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler(sys.stderr))
-
-
-def _make_logger(*args, **kwargs):
-    del args, kwargs
-    return loggers.TerminalLogger(print_fn=logger.info, time_delta=10.0)
 
 
 class Int32DiscreteSpaceWrapper(gym.spaces.Discrete):
@@ -55,7 +50,7 @@ def main():
         seed=0,
         network_factory=make_networks,
         environment_factory=_make_environment,
-        logger_factory=_make_logger,
+        logger_factory=mlflow.make_factory("garymm-dqn-breakout"),
         checkpointing=None,
     )
     logger.info("running experiment")
