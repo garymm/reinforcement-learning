@@ -19,8 +19,6 @@ class _Logger(base.Logger):
         self._steps_key = steps_key
         self._label = label
         self._auto_step_num = 0
-        # TODO: This is resulting in duplicate metrics with the `learner/` prefix.
-        # not sure why.
 
     def write(self, data: base.LoggingData) -> None:
         if self._steps_key:
@@ -34,7 +32,11 @@ class _Logger(base.Logger):
             if k == self._steps_key:
                 continue
             if self._label:
-                k = f"{self._label}/{k}"
+                if not k.startswith(f"{self._label}_"):
+                    continue
+                # label_foo -> label/foo for nicer MLFlow organization
+                # TODO: should have the framework do this for us.
+                k = f"{self._label}/{k[len(self._label) + 1 :]}"
             metrics.append(Metric(k, float(v), timestamp, step))
         try:
             self._client.log_batch(self._run_id, metrics=metrics)

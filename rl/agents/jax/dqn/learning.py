@@ -98,6 +98,12 @@ class DQNLearner(corax.Learner):
                 "q_loss": loss,
                 "q_loss_grad_l2_norm": optax.tree_utils.tree_l2_norm(loss_grad),
             }
+            if self._counter._prefix:
+                # A bit hacky, but I want to ensure that all the metrics have the same prefix.
+                # The instantiator of this class specified the prefix only in the counter.
+                metrics = {
+                    f"{self._counter._prefix}_{k}": v for k, v in metrics.items()
+                }
             return (
                 _TrainingState(
                     q_optimizer_state=q_optimizer_state,
