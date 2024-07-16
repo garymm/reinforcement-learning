@@ -17,6 +17,7 @@ dependencies = [
     "gymnasium[atari]",
     "jaxtyping",
     "jax[cuda12]",
+    "mlflow-skinny",
     "rlds",
     "tensorflow-probability",
 ]
