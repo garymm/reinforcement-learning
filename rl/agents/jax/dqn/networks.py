@@ -1,4 +1,5 @@
 import dataclasses
+from collections import abc
 
 import equinox as eqx
 import jax
@@ -25,7 +26,9 @@ class DQNNetworks:
 #     return tuple(sizes)
 
 
-def _conv_output_shape(conv: eqx.nn.Conv, input_shape: tuple[int]) -> tuple[int]:
+def _conv_output_shape(
+    conv: eqx.nn.Conv, input_shape: tuple[int, ...]
+) -> tuple[int, ...]:
     sizes = []
     for i, input_size in enumerate(input_shape):
         filter_size = (
@@ -50,30 +53,43 @@ class _QNetwork(eqx.Module):
     # The final hidden layer is fully-connected and consists of 256 rectifier units.
     # The output layer is a fully-connected linear layer with a single output for
     # each valid action.
-    # TODO: Do the transformations!
-    # probably more efficient to do the transformations φ inside the network,
-    # since I can compile them.
     _submodule: eqx.nn.Sequential
 
     def __init__(self, spec: specs.EnvironmentSpec, key: jax_types.PRNGKey):
         super().__init__()
-        obs_shape = spec.observations.shape
+        obs_shape = tuple(spec.observations.shape)
+        assert all(isinstance(x, int) for x in obs_shape)
         obs_rank = len(obs_shape)
-        if obs_rank < 3 or obs_rank > 4:
-            raise ValueError("Expected obs format BHWC or HWC. Got rank %d" % obs_rank)
+        if obs_rank != 3:
+            raise ValueError(
+                "Expected obs format (Height, Width, Channel). Got rank %d" % obs_rank
+            )
 
-        batched_inputs = obs_rank == 4
-        if batched_inputs:
-            obs_shape = obs_shape[1:]
-            obs_rank -= 1
+        # TODO: Support (or require?) frame stacking
 
-        num_spatial_dims = obs_rank - 1
+        # TODO: Ideally we want to use jax to do the transformations, since it can be
+        # compiled and run on the GPU, but we also don't want to do the transformation
+        # again for observations that are being replayed. So we should move the
+        # pre-processing to the environment.
+
+        # image resizing. TODO: make this configurable
+        resize_image_to = (84, 84)
+        need_resize = False
+        if (obs_shape[0], obs_shape[1]) != resize_image_to:
+            need_resize = True
+
+        num_spatial_dims = 2
         keys = jax.random.split(key, 4)
         num_filters = (16, 32)
         hid_0 = eqx.nn.Conv(
-            num_spatial_dims, obs_shape[-1], num_filters[0], 8, 4, key=keys[0]
+            num_spatial_dims,
+            1,  # in_channels=1 since we convert to grayscale below.
+            num_filters[0],
+            8,
+            4,
+            key=keys[0],
         )
-        hid_0_out_shape = _conv_output_shape(hid_0, obs_shape[:-1])
+        hid_0_out_shape = _conv_output_shape(hid_0, resize_image_to)
         hid_1 = eqx.nn.Conv(
             num_spatial_dims, num_filters[0], num_filters[1], 4, 2, key=keys[1]
         )
@@ -82,8 +98,24 @@ class _QNetwork(eqx.Module):
         hid_2_out_shape = 256
         assert isinstance(spec.actions, specs.DiscreteArray)
 
-        self._submodule = eqx.nn.Sequential(
-            (
+        layers: list[abc.Callable] = [
+            # channel last -> channel first
+            # Would be more efficient if the observations could match what my convs expect.
+            eqx.nn.Lambda(lambda x: jnp.transpose(x, (2, 0, 1))),
+            # grayscale TODO: make this configurable
+            eqx.nn.Lambda(lambda x: jnp.mean(x, 0, keepdims=True)),
+        ]
+
+        if need_resize:
+            layers.append(
+                eqx.nn.Lambda(
+                    lambda x: jax.image.resize(
+                        x, (1,) + resize_image_to, jax.image.ResizeMethod.NEAREST
+                    )
+                )
+            )
+        layers.extend(
+            [
                 hid_0,
                 eqx.nn.Lambda(jax.nn.relu),
                 hid_1,
@@ -93,8 +125,10 @@ class _QNetwork(eqx.Module):
                 eqx.nn.Linear(hid_2_in_shape, hid_2_out_shape, key=keys[2]),
                 eqx.nn.Lambda(jax.nn.relu),
                 eqx.nn.Linear(hid_2_out_shape, spec.actions.num_values, key=keys[3]),
-            )
+            ]
         )
+
+        self._submodule = eqx.nn.Sequential(layers)
 
     @eqx.filter_jit
     def __call__(self, x: jaxtyping.Array | np.ndarray) -> jaxtyping.Array:
@@ -103,11 +137,6 @@ class _QNetwork(eqx.Module):
         if isinstance(x, np.ndarray):
             x = jnp.array(x)
         x = x.astype(jnp.float32)
-        # channel last -> channel first
-        # Assuming channel last is the input format because of this:
-        # https://github.com/google-deepmind/acme/blob/bea6d6b27c366cd07dd5202356f372e02c1f3f9b/acme/jax/networks/atari.py#L56
-        # Would be more efficient if the observations could match what my convs expect.
-        x = x.transpose((2, 0, 1))
         return self._submodule(x)
 
 
