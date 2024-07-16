@@ -15,6 +15,7 @@ dependencies = [
     "equinox",
     "gymnasium[accept-rom-license]",
     "gymnasium[atari]",
+    "gymnasium[classic-control]",
     "jaxtyping",
     "jax[cuda12]",
     "mlflow-skinny",

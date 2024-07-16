@@ -1,10 +1,15 @@
+import argparse
 import logging
 import sys
+from typing import Optional
 
 import dm_env_wrappers
 import gymnasium as gym
 import numpy as np
 from corax.jax import experiments
+from corax.utils.loggers import AsyncLogger, Dispatcher, TerminalLogger
+from corax.utils.loggers import base as loggers_base
+from gymnasium.envs.classic_control import cartpole
 
 from rl.agents.jax.dqn.builder import DQNBuilder
 from rl.agents.jax.dqn.config import DQNConfig
@@ -27,7 +32,7 @@ class Int32DiscreteSpaceWrapper(gym.spaces.Discrete):
         self.dtype = np.int32
 
 
-def _make_environment(seed: int):
+def _environment_factory_breakout(seed: int):
     del seed
     # From paper section 5:
     # We use k = 4 for all games except Space Invaders where we noticed that using
@@ -42,8 +47,43 @@ def _make_environment(seed: int):
     return dm_env_wrappers.GymnasiumWrapper(gym_env)
 
 
-def main():
-    builder = DQNBuilder(config=DQNConfig())
+class _CartPoleObsToRenderWrapper(gym.ObservationWrapper):
+    def __init__(self, env):
+        super().__init__(env)
+        if not isinstance(env.unwrapped, cartpole.CartPoleEnv):
+            raise ValueError("Need a CartPoleEnv")
+        if env.render_mode != "rgb_array":
+            raise ValueError('need render_mode="rgb_array"')
+
+        self.observation_space = gym.spaces.Box(
+            0,
+            255,
+            shape=(env.unwrapped.screen_height, env.unwrapped.screen_width, 3),
+            dtype=np.uint8,
+        )
+
+    def observation(self, observation) -> np.ndarray:
+        rendered_obs = self.env.render()
+        assert isinstance(rendered_obs, np.ndarray)
+        return rendered_obs
+
+
+def _environment_factory_cart_pole(seed: int):
+    del seed
+    env = gym.make("CartPole-v1", render_mode="rgb_array")
+    env.action_space = Int32DiscreteSpaceWrapper(env.action_space)
+    env_rgb = _CartPoleObsToRenderWrapper(env)
+    return dm_env_wrappers.GymnasiumWrapper(env_rgb)
+
+
+def main(args):
+    if args.env == "breakout":
+        environment_factory = _environment_factory_breakout
+    elif args.env == "cart_pole":
+        environment_factory = _environment_factory_cart_pole
+    else:
+        sys.exit("invalid --env")
+
     config = experiments.ExperimentConfig(
         builder,
         max_num_actor_steps=2000,
@@ -52,10 +92,14 @@ def main():
         environment_factory=_make_environment,
         logger_factory=mlflow.make_factory("garymm-dqn-breakout"),
         checkpointing=None,
+        environment_factory=environment_factory,
     )
     logger.info("running experiment")
     experiments.run_experiment(config)
 
 
+argparser = argparse.ArgumentParser()
+argparser.add_argument("--env")
+argparser.add_argument("--restore_from_checkpoint")
 if __name__ == "__main__":
-    main()
+    main(argparser.parse_args())
