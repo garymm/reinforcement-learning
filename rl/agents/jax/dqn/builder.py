@@ -15,6 +15,7 @@ from corax.datasets import reverb as datasets_reverb
 from corax.jax import networks as networks_lib
 from corax.jax import types as jax_types
 from corax.jax import utils, variable_utils
+from corax.jax.experiments.savers import Checkpointer
 from corax.utils import counting, loggers
 from jax.dtypes import issubdtype
 from reverb import rate_limiters
@@ -140,7 +141,7 @@ class DQNBuilder(
           counter: a Counter which allows for recording of counts (learner steps,
             actor steps, etc.) distributed throughout the agent.
         """
-        return DQNLearner(
+        learner = DQNLearner(
             networks=networks,
             random_key=random_key,
             iterator=dataset,
@@ -148,6 +149,15 @@ class DQNBuilder(
             counter=counter,
             logger=logger_fn("learner"),
         )
+        if self._config.restore_from_checkpoint:
+            checkpointer = Checkpointer(
+                {"learner": learner}, directory=self._config.restore_from_checkpoint
+            )
+            # TODO: this silently fails.
+            # checkpointer.restore() should check the status returned by self._checkpoint.restore,
+            # or at least return it.
+            checkpointer.restore()
+        return learner
 
     def make_policy(
         self,

@@ -14,6 +14,7 @@ class DQNConfig:
     seed: int = 0
     # How often to update the the actor from the learner.
     variable_update_period: int = 1
+    restore_from_checkpoint: str = ""
 
     # TODO: maybe frame skip, frame stacking, but I guess that maybe
     # done inside the environment?

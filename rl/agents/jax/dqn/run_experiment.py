@@ -84,18 +84,41 @@ def main(args):
     else:
         sys.exit("invalid --env")
 
+    mlflow_logger_factory = mlflow.make_factory(f"garymm-dqn-{args.env}")
+
+    def logger_factory(
+        label: loggers_base.LoggerLabel,
+        steps_key: Optional[loggers_base.LoggerStepsKey] = None,
+        instance: Optional[loggers_base.TaskInstance] = None,
+    ) -> loggers_base.Logger:
+        return Dispatcher(
+            (
+                AsyncLogger(mlflow_logger_factory(label, steps_key, instance)),
+                TerminalLogger(time_delta=10.0),
+            )
+        )
+
+    checkpointing = experiments.CheckpointingConfig(
+        directory="checkpoints",
+    )
+
+    dqn_config = DQNConfig(
+        restore_from_checkpoint=args.restore_from_checkpoint,
+    )
+
+    builder = DQNBuilder(config=dqn_config)
+
     config = experiments.ExperimentConfig(
         builder,
-        max_num_actor_steps=2000,
+        max_num_actor_steps=2_000_000,
         seed=0,
         network_factory=make_networks,
-        environment_factory=_make_environment,
-        logger_factory=mlflow.make_factory("garymm-dqn-breakout"),
-        checkpointing=None,
         environment_factory=environment_factory,
+        logger_factory=logger_factory,
+        checkpointing=checkpointing,
     )
     logger.info("running experiment")
-    experiments.run_experiment(config)
+    experiments.run_experiment(config, eval_every=1_000)
 
 
 argparser = argparse.ArgumentParser()
