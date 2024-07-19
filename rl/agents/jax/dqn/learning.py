@@ -63,12 +63,16 @@ class DQNLearner(acme.core.Learner):
             target_q_params: networks_lib.Params,
             transition: acme.types.Transition,
         ):
-            target = transition.reward + transition.discount * networks.q_network.apply(
-                target_q_params, transition.next_observation, is_training=True
-            )
             estimate = networks.q_network.apply(
                 q_params, transition.observation, is_training=True
             )
+            target_max_q = jnp.max(
+                networks.q_network.apply(
+                    target_q_params, transition.next_observation, is_training=True
+                )
+            )
+            target_max_q = jax.lax.stop_gradient(target_max_q)
+            target = transition.reward + transition.discount * target_max_q
             return jnp.mean(jnp.square(target - estimate))
 
         q_loss_batched = jax.vmap(q_loss_single, in_axes=(None, None, 0))
