@@ -6,9 +6,9 @@ import jax
 import jax.numpy as jnp
 import jaxtyping
 import numpy as np
-from corax import specs
-from corax.jax import types as jax_types
-from corax.jax.networks import base as networks_base
+from acme import specs
+from acme.jax import types as jax_types
+from acme.jax.networks import base as networks_base
 
 
 @dataclasses.dataclass

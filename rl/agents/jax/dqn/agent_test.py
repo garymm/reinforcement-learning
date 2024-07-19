@@ -1,10 +1,17 @@
 import unittest
 
 import numpy as np
-from corax import specs
-from corax.jax import experiments
-from corax.testing import fakes
-from corax.utils import loggers
+import sys
+from rl.fake_deps import gym
+from rl.fake_deps import sonnet
+
+sys.modules["gym"] = gym
+sys.modules["sonnet"] = sonnet
+from acme import specs
+from acme.jax.experiments.config import ExperimentConfig
+from acme.jax.experiments.run_experiment import run_experiment
+from acme.testing import fakes
+from acme.utils import loggers
 from dm_env import specs as env_specs
 
 from rl.agents.jax.dqn.builder import DQNBuilder
@@ -49,7 +56,7 @@ class DQNTest(unittest.TestCase):
                 batch_size=2,
             )
         )
-        config = experiments.ExperimentConfig(
+        config = ExperimentConfig(
             builder,
             max_num_actor_steps=2 * env_episode_length,
             seed=0,
@@ -58,7 +65,7 @@ class DQNTest(unittest.TestCase):
             logger_factory=_make_empty_experiment_logger,
             checkpointing=None,
         )
-        experiments.run_experiment(config)
+        run_experiment(config)
 
 
 if __name__ == "__main__":

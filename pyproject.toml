@@ -5,22 +5,24 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "rl"
 authors = [{ name = "Gary Mindlin Miguel", email = "garymm@garymm.org" }]
-requires-python = ">=3.10,<3.11" # corax currently requires Python 3.10
+requires-python = ">=3.10,<3.11" # acme currently requires Python 3.10
 dynamic = ["version"]
 dependencies = [
-    "corax @ git+https://github.com/ethanluoyc/corax#egg=corax",
+    "dm-acme @ git+https://github.com/google-deepmind/acme#egg=acme@8d76656138cf1b2fbfba70808cbb8a0a753d79df",
     "dm-env-wrappers",
     "dm-haiku",
-    "dm-reverb[tensorflow]",
+    "dm-launchpad[reverb,tensorflow]",
     "equinox",
     "gymnasium[accept-rom-license]",
     "gymnasium[atari]",
     "gymnasium[classic-control]",
     "jaxtyping",
     "jax[cuda12]",
+    "matplotlib",
     "mlflow-skinny",
+    "protobuf == 3.20.1",
     "rlds",
-    "tensorflow-probability",
+    "tensorflow-probability == 0.16.0",
 ]
 
 [project.optional-dependencies]
@@ -32,4 +34,8 @@ filterwarnings = [
     "ignore:distutils Version classes are deprecated. Use packaging.version instead.:DeprecationWarning",
     "ignore:jax.core.pp_eqn_rules is deprecated.:DeprecationWarning",
     "ignore:jax.tree_map is deprecated.:DeprecationWarning",
+    "ignore:`np.bool8` is a deprecated alias for `np.bool_`:DeprecationWarning",
 ]
+
+[tool.setuptools]
+packages = ["rl"]

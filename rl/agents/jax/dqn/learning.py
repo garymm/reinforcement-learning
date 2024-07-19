@@ -4,16 +4,16 @@ import collections
 import time
 from typing import Any, Iterator, Sequence
 
-import corax
+import acme.core
 import equinox as eqx
 import jax
 import jax.numpy as jnp
 import jaxtyping
 import optax
 import reverb
-from corax.jax import networks as networks_lib
-from corax.jax.utils import fetch_devicearray
-from corax.utils import counting, loggers
+from acme.jax import networks as networks_lib
+from acme.jax.utils import fetch_devicearray
+from acme.utils import counting, loggers
 
 from rl.agents.jax.dqn.networks import (
     DQNNetworks,
@@ -26,8 +26,8 @@ _TrainingState = collections.namedtuple(
 )
 
 
-# TODO: maybe I can use corax.agents.jax.DefaultJaxLearner
-class DQNLearner(corax.Learner):
+# TODO: maybe I can use acme.agents.jax.DefaultJaxLearner
+class DQNLearner(acme.core.Learner):
     def __init__(
         self,
         networks: DQNNetworks,
@@ -63,7 +63,7 @@ class DQNLearner(corax.Learner):
         def q_loss_single(
             q_params: networks_lib.Params,
             target_q_params: networks_lib.Params,
-            transition: corax.types.Transition,
+            transition: acme.types.Transition,
         ):
             target = transition.reward + transition.discount * networks.q_network.apply(
                 target_q_params, transition.next_observation, is_training=True
@@ -78,7 +78,7 @@ class DQNLearner(corax.Learner):
         def q_loss(
             q_params: networks_lib.Params,
             target_q_params: networks_lib.Params,
-            transition: corax.types.Transition,
+            transition: acme.types.Transition,
         ):
             return jnp.mean(q_loss_batched(q_params, target_q_params, transition))
 
@@ -86,7 +86,7 @@ class DQNLearner(corax.Learner):
 
         def update_step(
             state: _TrainingState,
-            transition: corax.types.Transition,
+            transition: acme.types.Transition,
         ) -> tuple[_TrainingState, dict[str, jaxtyping.Array]]:
             loss, loss_grad = q_loss_grad(
                 state.q_params, state.target_q_params, transition
@@ -119,7 +119,7 @@ class DQNLearner(corax.Learner):
 
     def step(self):
         sample = next(self._iterator)
-        transitions = corax.types.Transition(*sample.data)
+        transitions = acme.types.Transition(*sample.data)
 
         self._state, metrics = self._update_step(self._state, transitions)
 

@@ -1,7 +1,7 @@
 import threading
 
 import mlflow
-from corax.utils.loggers import base
+from acme.utils.loggers import base
 from mlflow.entities import Metric
 from mlflow.utils.time import get_current_time_millis
 

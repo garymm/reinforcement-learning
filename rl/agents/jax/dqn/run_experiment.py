@@ -6,9 +6,9 @@ from typing import Optional
 import dm_env_wrappers
 import gymnasium as gym
 import numpy as np
-from corax.jax import experiments
-from corax.utils.loggers import AsyncLogger, Dispatcher, TerminalLogger
-from corax.utils.loggers import base as loggers_base
+from acme.jax import experiments
+from acme.utils.loggers import AsyncLogger, Dispatcher, TerminalLogger
+from acme.utils.loggers import base as loggers_base
 from gymnasium.envs.classic_control import cartpole
 
 from rl.agents.jax.dqn.builder import DQNBuilder
@@ -98,13 +98,12 @@ def main(args):
             )
         )
 
-    checkpointing = experiments.CheckpointingConfig(
-        directory="checkpoints",
-    )
+    checkpointing = None
+    # checkpointing = experiments.CheckpointingConfig(
+    #     directory="checkpoints",
+    # )
 
-    dqn_config = DQNConfig(
-        restore_from_checkpoint=args.restore_from_checkpoint,
-    )
+    dqn_config = DQNConfig()
 
     builder = DQNBuilder(config=dqn_config)
 
@@ -123,6 +122,5 @@ def main(args):
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument("--env")
-argparser.add_argument("--restore_from_checkpoint")
 if __name__ == "__main__":
     main(argparser.parse_args())
