@@ -15,8 +15,7 @@ class DQNConfig:
     # How often to update the the actor from the learner.
     variable_update_period: int = 1
 
-    # TODO: maybe frame skip, frame stacking, but I guess that maybe
-    # done inside the environment?
+    num_stacked_observations: int = 1
 
     def __post_init__(self):
         assert self.batch_size > 0

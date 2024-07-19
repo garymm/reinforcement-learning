@@ -6,6 +6,8 @@ from typing import Optional
 import dm_env_wrappers
 import gymnasium as gym
 import numpy as np
+
+from rl import fake_deps  # noqa # isort: skip noqa
 from acme.jax import experiments
 from acme.utils.loggers import AsyncLogger, Dispatcher, TerminalLogger
 from acme.utils.loggers import base as loggers_base
@@ -103,7 +105,7 @@ def main(args):
     #     directory="checkpoints",
     # )
 
-    dqn_config = DQNConfig()
+    dqn_config = DQNConfig(num_stacked_observations=4)
 
     builder = DQNBuilder(config=dqn_config)
 

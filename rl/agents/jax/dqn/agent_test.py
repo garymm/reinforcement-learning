@@ -50,6 +50,7 @@ class DQNTest(unittest.TestCase):
                 # to determine when there's enough observations to learn.
                 replay_buffer_size=env_episode_length,
                 batch_size=2,
+                num_stacked_observations=2,
             )
         )
         config = ExperimentConfig(
