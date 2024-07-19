@@ -1,12 +1,8 @@
 import unittest
 
 import numpy as np
-import sys
-from rl.fake_deps import gym
-from rl.fake_deps import sonnet
 
-sys.modules["gym"] = gym
-sys.modules["sonnet"] = sonnet
+from rl import fake_deps  # noqa # isort: skip noqa
 from acme import specs
 from acme.jax.experiments.config import ExperimentConfig
 from acme.jax.experiments.run_experiment import run_experiment
