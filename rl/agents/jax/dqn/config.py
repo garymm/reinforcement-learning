@@ -1,4 +1,11 @@
 import dataclasses
+import typing
+
+from optax import ScalarOrSchedule
+
+
+def _is_valid_rate(x: ScalarOrSchedule):
+    return (isinstance(x, float) and x > 0) or (isinstance(x, typing.Callable))
 
 
 @dataclasses.dataclass
@@ -7,9 +14,8 @@ class DQNConfig:
 
     batch_size: int = 32
     discount: float = 0.99
-    epsilon: float = 0.01  # TODO: support schedule
-    learning_rate: float = 2e-4  # TODO: support optax.Schedule
-    policy_epsilon: float = 0.01
+    policy_epsilon: ScalarOrSchedule = 0.01
+    learning_rate: ScalarOrSchedule = 2e-4
     replay_buffer_size: int = 1_000_000
     seed: int = 0
     # How often to update the the actor from the learner.
@@ -20,6 +26,7 @@ class DQNConfig:
     def __post_init__(self):
         assert self.batch_size > 0
         assert 0 <= self.discount <= 1
-        assert self.learning_rate > 0
+        assert _is_valid_rate(self.policy_epsilon)
+        assert _is_valid_rate(self.learning_rate)
         assert self.replay_buffer_size > self.batch_size
         assert self.seed >= 0

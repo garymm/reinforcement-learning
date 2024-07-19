@@ -8,6 +8,7 @@ import gymnasium as gym
 import numpy as np
 
 from rl import fake_deps  # noqa # isort: skip noqa
+import optax
 from acme.jax import experiments
 from acme.utils.loggers import AsyncLogger, Dispatcher, TerminalLogger
 from acme.utils.loggers import base as loggers_base
@@ -79,10 +80,13 @@ def _environment_factory_cart_pole(seed: int):
 
 
 def main(args):
+    num_stacked_observations = 0
     if args.env == "breakout":
         environment_factory = _environment_factory_breakout
+        # TODO: use atari_wrapper to handle obs stacking for breakout
     elif args.env == "cart_pole":
         environment_factory = _environment_factory_cart_pole
+        num_stacked_observations = 2
     else:
         sys.exit("invalid --env")
 
@@ -105,13 +109,21 @@ def main(args):
     #     directory="checkpoints",
     # )
 
-    dqn_config = DQNConfig(num_stacked_observations=4)
+    max_num_actor_steps = 2_000_000
+
+    dqn_config = DQNConfig(
+        num_stacked_observations=num_stacked_observations,
+        learning_rate=optax.cosine_onecycle_schedule(
+            transition_steps=max_num_actor_steps,
+            peak_value=1e-3,
+        ),
+    )
 
     builder = DQNBuilder(config=dqn_config)
 
     config = experiments.ExperimentConfig(
         builder,
-        max_num_actor_steps=2_000_000,
+        max_num_actor_steps=max_num_actor_steps,
         seed=0,
         network_factory=make_networks,
         environment_factory=environment_factory,

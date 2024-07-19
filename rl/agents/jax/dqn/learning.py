@@ -95,6 +95,7 @@ class DQNLearner(acme.core.Learner):
             metrics = {
                 "q_loss": loss,
                 "q_loss_grad_l2_norm": optax.tree_utils.tree_l2_norm(loss_grad),
+                "q_update_l2_norm": optax.tree_utils.tree_l2_norm(q_update),
             }
             if self._counter._prefix:
                 # A bit hacky, but I want to ensure that all the metrics have the same prefix.

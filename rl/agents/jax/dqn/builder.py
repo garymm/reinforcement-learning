@@ -187,7 +187,7 @@ class DQNBuilder(builders.ActorLearnerBuilder):
         ) -> jaxtyping.Array:
             # From the paper algorithm 1, epsilon greedy policy.
             return jax.lax.cond(
-                jax.random.uniform(key) < self._config.epsilon,
+                jax.random.uniform(key) < self._config.policy_epsilon,
                 _random_action,
                 _greedy_policy,
                 params,
