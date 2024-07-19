@@ -37,7 +37,7 @@ def _make_fake_environment(seed: int):
     return environment
 
 
-class DrQV2Test(unittest.TestCase):
+class DQNTest(unittest.TestCase):
     def test_agent(self):
         builder = DQNBuilder(
             config=DQNConfig(
