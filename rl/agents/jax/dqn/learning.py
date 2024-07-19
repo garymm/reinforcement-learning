@@ -12,7 +12,6 @@ import jaxtyping
 import optax
 import reverb
 from acme.jax import networks as networks_lib
-from acme.jax.utils import fetch_devicearray
 from acme.utils import counting, loggers
 
 from rl.agents.jax.dqn.networks import (
@@ -43,7 +42,6 @@ class DQNLearner(acme.core.Learner):
         self._logger = logger or loggers.make_default_logger(
             "learner",
             asynchronous=True,
-            serialize_fn=fetch_devicearray,
             steps_key=self._counter.get_steps_key(),
         )
         self._timestamp: float = 0.0

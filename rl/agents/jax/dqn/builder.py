@@ -16,7 +16,7 @@ from acme.jax import networks as networks_lib
 from acme.jax import observation_stacking, utils, variable_utils
 from acme.jax import types as jax_types
 from acme.utils import counting, loggers
-from jax.dtypes import issubdtype
+from jax._src.dtypes import issubdtype
 from reverb import rate_limiters
 
 from rl.agents.jax.dqn.config import DQNConfig
@@ -26,11 +26,7 @@ from rl.agents.jax.dqn.networks import (
 )
 
 
-class DQNBuilder(
-    builders.ActorLearnerBuilder[
-        DQNNetworks, actor_core_lib.FeedForwardPolicy, reverb.ReplaySample
-    ]
-):
+class DQNBuilder(builders.ActorLearnerBuilder):
     def __init__(self, config: DQNConfig):
         self._config = config
 
