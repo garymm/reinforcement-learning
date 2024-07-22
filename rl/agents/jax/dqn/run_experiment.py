@@ -1,13 +1,18 @@
 import argparse
 import logging
+import os
+import pickle
 import sys
 from typing import Optional
 
 import dm_env_wrappers
 import gymnasium as gym
 import numpy as np
+from gymnasium.wrappers import FrameStack as GymFrameStack
 
 from rl import fake_deps  # noqa # isort: skip noqa
+import datetime
+
 import optax
 from acme.jax import experiments
 from acme.utils.loggers import AsyncLogger, Dispatcher, TerminalLogger
@@ -17,11 +22,14 @@ from gymnasium.envs.classic_control import cartpole
 from rl.agents.jax.dqn.builder import DQNBuilder
 from rl.agents.jax.dqn.config import DQNConfig
 from rl.agents.jax.dqn.networks import make_networks
+from rl.experiments.run_experiment import run_experiment
 from rl.utils.loggers import mlflow
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.addHandler(logging.StreamHandler(sys.stderr))
+
+obs_num_stack = 4
 
 
 class Int32DiscreteSpaceWrapper(gym.spaces.Discrete):
@@ -35,6 +43,11 @@ class Int32DiscreteSpaceWrapper(gym.spaces.Discrete):
         self.dtype = np.int32
 
 
+class FrameStack(GymFrameStack):
+    def observation(self, observation):
+        return np.stack(list(self.frames), axis=0)
+
+
 def _environment_factory_breakout(seed: int):
     del seed
     # From paper section 5:
@@ -43,11 +56,11 @@ def _environment_factory_breakout(seed: int):
     # We used k = 3 to make the lasers visible and
     # this change was the only difference in hyperparameter values between any of
     # the games.
-    # TODO: obs_type="grayscale" to match the paper
-    # Probably use acme/wrappers/atari_wrapper.py
-    gym_env = gym.make("BreakoutDeterministic-v4", frameskip=4)
-    gym_env.action_space = Int32DiscreteSpaceWrapper(gym_env.action_space)
-    return dm_env_wrappers.GymnasiumWrapper(gym_env)
+    # TODO: use atari_wrapper to handle obs stacking
+    env = gym.make("BreakoutDeterministic-v4", frameskip=4)
+    env.action_space = Int32DiscreteSpaceWrapper(env.action_space)
+    env = FrameStack(env, obs_num_stack)
+    return dm_env_wrappers.GymnasiumWrapper(env)
 
 
 class _CartPoleObsToRenderWrapper(gym.ObservationWrapper):
@@ -75,18 +88,16 @@ def _environment_factory_cart_pole(seed: int):
     del seed
     env = gym.make("CartPole-v1", render_mode="rgb_array")
     env.action_space = Int32DiscreteSpaceWrapper(env.action_space)
-    env_rgb = _CartPoleObsToRenderWrapper(env)
-    return dm_env_wrappers.GymnasiumWrapper(env_rgb)
+    env = _CartPoleObsToRenderWrapper(env)
+    env = FrameStack(env, obs_num_stack)
+    return dm_env_wrappers.GymnasiumWrapper(env)
 
 
 def main(args):
-    num_stacked_observations = 0
     if args.env == "breakout":
         environment_factory = _environment_factory_breakout
-        # TODO: use atari_wrapper to handle obs stacking for breakout
     elif args.env == "cart_pole":
         environment_factory = _environment_factory_cart_pole
-        num_stacked_observations = 2
     else:
         sys.exit("invalid --env")
 
@@ -100,19 +111,13 @@ def main(args):
         return Dispatcher(
             (
                 AsyncLogger(mlflow_logger_factory(label, steps_key, instance)),
-                TerminalLogger(time_delta=10.0),
+                TerminalLogger(label, time_delta=10.0),
             )
         )
-
-    checkpointing = None
-    # checkpointing = experiments.CheckpointingConfig(
-    #     directory="checkpoints",
-    # )
 
     max_num_actor_steps = 2_000_000
 
     dqn_config = DQNConfig(
-        num_stacked_observations=num_stacked_observations,
         learning_rate=optax.cosine_onecycle_schedule(
             transition_steps=max_num_actor_steps,
             peak_value=1e-3,
@@ -121,6 +126,11 @@ def main(args):
 
     builder = DQNBuilder(config=dqn_config)
 
+    timestamp = datetime.datetime.now().strftime(r"%Y%m%d-%H%M%S")
+    run_dir = f"runs/{args.env}/{timestamp}"
+
+    logger.info("saving to %s", run_dir)
+
     config = experiments.ExperimentConfig(
         builder,
         max_num_actor_steps=max_num_actor_steps,
@@ -128,10 +138,22 @@ def main(args):
         network_factory=make_networks,
         environment_factory=environment_factory,
         logger_factory=logger_factory,
-        checkpointing=checkpointing,
     )
+    checkpoint_dir = os.path.join(run_dir, "checkpoints")
+    os.makedirs(checkpoint_dir)
     logger.info("running experiment")
-    experiments.run_experiment(config, eval_every=1_000)
+
+    trained = run_experiment(
+        config,
+        eval_every=1_000,
+        eval_video_dir=run_dir,  # VideoWrapper adds a subdir automatically
+        checkpoint_dir=checkpoint_dir,
+    )
+    logger.info("done")
+    model_state = trained.save()
+    filename = f"{run_dir}/model_state_final.pkl"
+    with open(filename, "wb") as f:
+        f.write(pickle.dumps(model_state))
 
 
 argparser = argparse.ArgumentParser()

@@ -13,8 +13,8 @@ from acme.agents.jax import actor_core as actor_core_lib
 from acme.agents.jax import actors, builders
 from acme.datasets import reverb as datasets_reverb
 from acme.jax import networks as networks_lib
-from acme.jax import observation_stacking, utils, variable_utils
 from acme.jax import types as jax_types
+from acme.jax import utils, variable_utils
 from acme.utils import counting, loggers
 from jax._src.dtypes import issubdtype
 from reverb import rate_limiters
@@ -97,12 +97,6 @@ class DQNBuilder(builders.ActorLearnerBuilder):
     ) -> core.Actor:
         assert variable_source
         actor_core = actor_core_lib.batched_feed_forward_to_actor_core(policy)
-        if self._config.num_stacked_observations > 1:
-            actor_core = observation_stacking.wrap_actor_core(
-                actor_core,
-                observation_spec=environment_spec.observations,
-                num_stacked_observations=self._config.num_stacked_observations,
-            )
         variable_client = variable_utils.VariableClient(
             variable_source,
             "q",

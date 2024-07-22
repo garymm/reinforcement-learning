@@ -32,11 +32,12 @@ class _Logger(base.Logger):
             if k == self._steps_key:
                 continue
             if self._label:
-                if not k.startswith(f"{self._label}_"):
-                    continue
+                strip_prefix = f"{self._label}_"
+                if k.startswith(strip_prefix):
+                    k = k[len(strip_prefix) :]
                 # label_foo -> label/foo for nicer MLFlow organization
                 # TODO: should have the framework do this for us.
-                k = f"{self._label}/{k[len(self._label) + 1 :]}"
+                k = f"{self._label}/{k}"
             metrics.append(Metric(k, float(v), timestamp, step))
         try:
             self._client.log_batch(self._run_id, metrics=metrics)

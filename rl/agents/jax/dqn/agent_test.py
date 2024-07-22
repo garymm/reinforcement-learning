@@ -1,32 +1,38 @@
 import unittest
+from typing import Optional
 
 import numpy as np
 
 from rl import fake_deps  # noqa # isort: skip noqa
 from acme import specs
 from acme.jax.experiments.config import ExperimentConfig
-from acme.jax.experiments.run_experiment import run_experiment
 from acme.testing import fakes
 from acme.utils import loggers
+from acme.utils.loggers import base as loggers_base
 from dm_env import specs as env_specs
 
 from rl.agents.jax.dqn.builder import DQNBuilder
 from rl.agents.jax.dqn.config import DQNConfig
 from rl.agents.jax.dqn.networks import make_networks
+from rl.experiments.run_experiment import run_experiment
 
 env_episode_length = 10
 
 
-def _make_empty_experiment_logger(*args, **kwargs):
-    del args, kwargs
-    return loggers.TerminalLogger(time_delta=10.0)
+def logger_factory(
+    label: loggers_base.LoggerLabel,
+    steps_key: Optional[loggers_base.LoggerStepsKey] = None,
+    instance: Optional[loggers_base.TaskInstance] = None,
+) -> loggers_base.Logger:
+    return loggers.TerminalLogger(label, time_delta=10.0)
 
 
-def _make_fake_environment(seed: int):
+def environment_factory(seed: int):
     del seed
     environment = fakes.Environment(
         specs.EnvironmentSpec(
-            observations=env_specs.BoundedArray((84, 84, 9), np.uint8, 0, 255),
+            # stack, height, width, channel
+            observations=env_specs.BoundedArray((2, 96, 96, 3), np.uint8, 0, 255),
             actions=env_specs.DiscreteArray(
                 num_values=3,
                 # dm_env lacks type hints.
@@ -50,16 +56,16 @@ class DQNTest(unittest.TestCase):
                 # to determine when there's enough observations to learn.
                 replay_buffer_size=env_episode_length,
                 batch_size=2,
-                num_stacked_observations=2,
             )
         )
+
         config = ExperimentConfig(
             builder,
             max_num_actor_steps=2 * env_episode_length,
             seed=0,
             network_factory=make_networks,
-            environment_factory=_make_fake_environment,
-            logger_factory=_make_empty_experiment_logger,
+            environment_factory=environment_factory,
+            logger_factory=logger_factory,
             checkpointing=None,
         )
         run_experiment(config)

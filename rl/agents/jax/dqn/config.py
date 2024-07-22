@@ -21,8 +21,6 @@ class DQNConfig:
     # How often to update the the actor from the learner.
     variable_update_period: int = 1
 
-    num_stacked_observations: int = 1
-
     def __post_init__(self):
         assert self.batch_size > 0
         assert 0 <= self.discount <= 1
