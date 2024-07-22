@@ -1,0 +1,11 @@
+name: rl
+channels:
+  - conda-forge
+dependencies:
+  - equinox
+  - gymnasium-classic_control
+  - jax
+  - jaxtyping
+  - ml_dtypes
+  - optax
+  - python=3.10
