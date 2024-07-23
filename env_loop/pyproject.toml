@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rl"
+authors = [{ name = "Gary Mindlin Miguel", email = "garymm@garymm.org" }]
+requires-python = ">=3.10"
+dynamic = ["version"]
+dependencies = [
+    "equinox",
+    "gymnasium[classic-control]",
+    "gymnax",
+    "jaxtyping",
+    "jax",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.pytest.ini_options]
+filterwarnings = []
+
+[tool.setuptools]
+packages = ["rl"]
